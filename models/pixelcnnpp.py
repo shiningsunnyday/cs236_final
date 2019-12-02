@@ -331,8 +331,8 @@ class embedding_nn(nn.Module):
         super(embedding_nn, self).__init__()
         self.conditional_embedding_size = conditional_embedding_size
         self.out_size = out_size
-        self.nn = nn.ModuleList([nn.Linear(conditional_embedding_size, out_size),
-                                 nn.ReLU()])
+        self.nn = nn.Sequential(nn.Linear(conditional_embedding_size, out_size),
+                                 nn.ReLU())
         self.non_linearity_inner = nn.Linear(conditional_embedding_size, out_size)
         
     def forward(self, h):
