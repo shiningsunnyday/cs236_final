@@ -10,8 +10,16 @@ import time
 from tqdm import tqdm
 from tensorboardX import SummaryWriter
 import numpy as np
+import random
 
 os.makedirs("images", exist_ok=True)
+
+torch.manual_seed(12)
+torch.cuda.manual_seed(12)
+np.random.seed(12)
+random.seed(12)
+
+torch.backends.cudnn.deterministic=True
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--n_epochs", type=int, default=150, help="number of epochs of training")
@@ -116,11 +124,13 @@ if __name__ == "__main__":
         train_dataset,
         batch_size=opt.batch_size,
         shuffle=True,
+        worker_init_fn=np.random.seed(12)
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
         batch_size=opt.batch_size,
         shuffle=True,
+        worker_init_fn=np.random.seed(12)
     )
 
     print("Len train : {}, val : {}".format(len(train_dataloader), len(val_dataloader)))
