@@ -336,7 +336,7 @@ class embedding_nn(nn.Module):
         self.non_linearity_inner = nn.Linear(conditional_embedding_size, out_size)
         
     def forward(self, h):
-        return self.nn(h)
+        return self.nn.forward(h)
 
 class gated_resnet(nn.Module):
     def __init__(self, num_filters, conv_op, conditional_embedding_size, nonlinearity=concat_elu, skip_connection=0):
