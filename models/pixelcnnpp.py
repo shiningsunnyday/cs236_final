@@ -6,10 +6,11 @@ from models.interface import ConditionedGenerativeModel
 
 
 class ConditionalPixelCNNpp(ConditionedGenerativeModel):
-    def __init__(self, embd_size, img_shape, nr_resnet=5, nr_filters=80, nr_logistic_mix=10):
+    def __init__(self, embd_size, projection, img_shape, nr_resnet=5, nr_filters=80, nr_logistic_mix=10):
         super(ConditionalPixelCNNpp, self).__init__(embd_size)
         self.pixel_cnn_model = PixelCNNpp(nr_resnet=nr_resnet, nr_filters=nr_filters, nr_logistic_mix=nr_logistic_mix,
                                           embedding_size=embd_size,
+                                          projection=projection,
                                           input_channels=img_shape[0])
         self.n_logistic_mix = nr_logistic_mix
         self.img_shape = img_shape
@@ -65,21 +66,22 @@ class ConditionalPixelCNNpp(ConditionedGenerativeModel):
 
 
 class PixelCNNpp(nn.Module):
-    def __init__(self, nr_resnet=5, nr_filters=80, nr_logistic_mix=10, embedding_size=768, input_channels=3):
+    def __init__(self, nr_resnet=5, nr_filters=80, nr_logistic_mix=10, embedding_size=768, projection="linear", input_channels=3):
         super(PixelCNNpp, self).__init__()
 
         self.resnet_nonlinearity = lambda x: concat_elu(x)
         self.nr_filters = nr_filters
+        self.projection = projection
         self.input_channels = input_channels
         self.nr_logistic_mix = nr_logistic_mix
         self.right_shift_pad = nn.ZeroPad2d((1, 0, 0, 0))
         self.down_shift_pad = nn.ZeroPad2d((0, 0, 1, 0))
 
         down_nr_resnet = [nr_resnet] + [nr_resnet + 1] * 2
-        self.down_layers = nn.ModuleList([PixelCNNLayer_down(down_nr_resnet[i], nr_filters, embedding_size,
+        self.down_layers = nn.ModuleList([PixelCNNLayer_down(down_nr_resnet[i], nr_filters, embedding_size, projection,
                                                              self.resnet_nonlinearity) for i in range(3)])
 
-        self.up_layers = nn.ModuleList([PixelCNNLayer_up(nr_resnet, nr_filters, embedding_size,
+        self.up_layers = nn.ModuleList([PixelCNNLayer_up(nr_resnet, nr_filters, embedding_size, projection,
                                                          self.resnet_nonlinearity) for _ in range(3)])
 
         self.downsize_u_stream = nn.ModuleList([down_shifted_conv2d(nr_filters, nr_filters,
@@ -157,17 +159,16 @@ class PixelCNNpp(nn.Module):
 
 
 class PixelCNNLayer_up(nn.Module):
-    def __init__(self, nr_resnet, nr_filters, embedding_size, resnet_nonlinearity):
+    def __init__(self, nr_resnet, nr_filters, embedding_size, projection, resnet_nonlinearity):
         super(PixelCNNLayer_up, self).__init__()
         self.nr_resnet = nr_resnet
         # stream from pixels above
-        self.u_stream = nn.ModuleList([gated_resnet(nr_filters, down_shifted_conv2d, embedding_size,
+        self.u_stream = nn.ModuleList([gated_resnet(nr_filters, down_shifted_conv2d, embedding_size, projection,
                                                     resnet_nonlinearity, skip_connection=0)
                                        for _ in range(nr_resnet)])
 
         # stream from pixels above and to thes left
-        self.ul_stream = nn.ModuleList([gated_resnet(nr_filters, down_right_shifted_conv2d, embedding_size,
-                                                     resnet_nonlinearity, skip_connection=1)
+        self.ul_stream = nn.ModuleList([gated_resnet(nr_filters, down_right_shifted_conv2d, embedding_size, projection, resnet_nonlinearity, skip_connection=1)
                                         for _ in range(nr_resnet)])
 
     def forward(self, u, ul, cond_embedding):
@@ -183,17 +184,15 @@ class PixelCNNLayer_up(nn.Module):
 
 
 class PixelCNNLayer_down(nn.Module):
-    def __init__(self, nr_resnet, nr_filters, embedding_size, resnet_nonlinearity):
+    def __init__(self, nr_resnet, nr_filters, embedding_size, projection, resnet_nonlinearity):
         super(PixelCNNLayer_down, self).__init__()
         self.nr_resnet = nr_resnet
         # stream from pixels above
-        self.u_stream = nn.ModuleList([gated_resnet(nr_filters, down_shifted_conv2d, embedding_size,
-                                                    resnet_nonlinearity, skip_connection=1)
+        self.u_stream = nn.ModuleList([gated_resnet(nr_filters, down_shifted_conv2d, embedding_size, projection, resnet_nonlinearity, skip_connection=1)
                                        for _ in range(nr_resnet)])
 
         # stream from pixels above and to the left
-        self.ul_stream = nn.ModuleList([gated_resnet(nr_filters, down_right_shifted_conv2d, embedding_size,
-                                                     resnet_nonlinearity, skip_connection=2)
+        self.ul_stream = nn.ModuleList([gated_resnet(nr_filters, down_right_shifted_conv2d, embedding_size, projection, resnet_nonlinearity, skip_connection=2)
                                         for _ in range(nr_resnet)])
 
     def forward(self, u, ul, u_list, ul_list, cond_embedding):
@@ -339,7 +338,7 @@ class embedding_nn(nn.Module):
         return self.nn.forward(h)
 
 class gated_resnet(nn.Module):
-    def __init__(self, num_filters, conv_op, conditional_embedding_size, nonlinearity=concat_elu, skip_connection=0):
+    def __init__(self, num_filters, conv_op, conditional_embedding_size, projection, nonlinearity=concat_elu, skip_connection=0):
         super(gated_resnet, self).__init__()
         self.skip_connection = skip_connection
         self.nonlinearity = nonlinearity
@@ -347,10 +346,14 @@ class gated_resnet(nn.Module):
 
         if skip_connection != 0:
             self.nin_skip = nin(2 * skip_connection * num_filters, num_filters)
-
-        self.conditioning_projection = embedding_nn(conditional_embedding_size, 2 * num_filters)
         
-        # nn.Linear(conditional_embedding_size, 2 * num_filters, bias=False)
+        if projection == "linear":
+            self.conditioning_projection = nn.Linear(conditional_embedding_size, 2 * num_filters, bias=False)
+        elif projection == "gated_linear":
+            self.conditioning_projection = embedding_lambda(conditional_embedding_size, 2 * num_filters)
+        elif projection == "linear_relu":
+            self.conditioning_projection = embedding_nn(conditional_embedding_size, 2 * num_filters)
+       
         
         self.dropout = nn.Dropout2d(0.5)
         self.n_filters = num_filters

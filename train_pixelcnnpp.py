@@ -41,6 +41,7 @@ parser.add_argument("--model_checkpoint", type=str, default=None,
 parser.add_argument("--print_every", type=int, default=10)
 parser.add_argument("--dataset", type=str, default="cifar10", choices=["imagenet32", "cifar10"])
 parser.add_argument("--conditioning", type=str, default="unconditional", choices=["unconditional", "one-hot", "bert"])
+parser.add_argument("--projection", type=str, default="linear", choices=["linear", "gated_linear", "linear_relu"])
 
 
 def train(model, embedder, optimizer, scheduler,
@@ -50,6 +51,8 @@ def train(model, embedder, optimizer, scheduler,
         model = model.train()
         loss_to_log = 0.0
         for i, (imgs, labels, captions) in enumerate(train_loader):
+            if i == train_dataloader.__len__()//2:
+                break
             start_batch = time.time()
             imgs = imgs.to(device)
             labels = labels.to(device)
@@ -83,7 +86,7 @@ def train(model, embedder, optimizer, scheduler,
         writer.add_scalar("val/bpd", val_bpd, (epoch + 1) * len(train_loader))
 
         torch.save(model.state_dict(),
-                   os.path.join(opt.output_dir, 'models', 'epoch_{}.pt'.format(epoch)))
+                   os.path.join(opt.output_dir, 'models', 'epoch_{}.pt'.format(0.5)))
 
     scheduler.step()
 
@@ -149,7 +152,8 @@ if __name__ == "__main__":
         assert opt.conditioning == "one-hot"
         encoder = OneHotClassEmbedding(train_dataset.n_classes)
 
-    generative_model = ConditionalPixelCNNpp(embd_size=encoder.embed_size, img_shape=train_dataset.image_shape,
+    generative_model = ConditionalPixelCNNpp(embd_size=encoder.embed_size, 
+                                             projection=opt.projection, img_shape=train_dataset.image_shape,
                                              nr_resnet=opt.n_resnet, nr_filters=opt.n_filters,
                                              nr_logistic_mix=3 if train_dataset.image_shape[0] == 1 else 10)
 
