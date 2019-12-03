@@ -314,9 +314,9 @@ skip connection parameter : 0 = no skip connection
                             2 = skip connection where skip input size === 2 * input size
 '''
 
-class embedding_lambda(nn.Module):
+class embedding_linear_gate(nn.Module):
     def __init__(self, conditional_embedding_size, out_size):
-        super(embedding_lambda, self).__init__()
+        super(embedding_linear_gate, self).__init__()
         self.conditional_embedding_size = conditional_embedding_size
         self.out_size = out_size
         self.linear = nn.Linear(conditional_embedding_size, out_size, bias=False)
@@ -325,9 +325,9 @@ class embedding_lambda(nn.Module):
         return self.linear(h) * torch.sigmoid(self.linear(h))
     
 
-class embedding_nn(nn.Module):
+class embedding_linear_relu(nn.Module):
     def __init__(self, conditional_embedding_size, out_size):
-        super(embedding_nn, self).__init__()
+        super(embedding_linear_relu, self).__init__()
         self.conditional_embedding_size = conditional_embedding_size
         self.out_size = out_size
         self.nn = nn.Sequential(nn.Linear(conditional_embedding_size, out_size),
@@ -350,10 +350,10 @@ class gated_resnet(nn.Module):
         if projection == "linear":
             self.conditioning_projection = nn.Linear(conditional_embedding_size, 2 * num_filters, bias=False)
         elif projection == "gated_linear":
-            self.conditioning_projection = embedding_lambda(conditional_embedding_size, 2 * num_filters)
+            self.conditioning_projection = embedding_linear_gate(conditional_embedding_size, 2 * num_filters)
         elif projection == "linear_relu":
-            self.conditioning_projection = embedding_nn(conditional_embedding_size, 2 * num_filters)
-       
+            self.conditioning_projection = embedding_linear_relu(conditional_embedding_size, 2 * num_filters)
+        
         
         self.dropout = nn.Dropout2d(0.5)
         self.n_filters = num_filters
