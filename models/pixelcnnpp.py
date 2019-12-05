@@ -336,6 +336,20 @@ class embedding_linear_relu(nn.Module):
         
     def forward(self, h):
         return self.nn.forward(h)
+    
+class embedding_shallow_nn(nn.Module):
+    def __init__(self, conditional_embedding_size, out_size):
+        super(embedding_shallow_nn, self).__init__()
+        self.conditional_embedding_size = conditional_embedding_size
+        self.out_size = out_size
+        self.nn = nn.Sequential(nn.Linear(conditional_embedding_size, 2*out_size),
+                                nn.Sigmoid(),
+                                nn.Linear(2*out_size, out_size),
+                                 nn.ReLU())
+        self.non_linearity_inner = nn.Linear(conditional_embedding_size, out_size)
+        
+    def forward(self, h):
+        return self.nn.forward(h)
 
 class gated_resnet(nn.Module):
     def __init__(self, num_filters, conv_op, conditional_embedding_size, projection, nonlinearity=concat_elu, skip_connection=0):
@@ -353,6 +367,9 @@ class gated_resnet(nn.Module):
             self.conditioning_projection = embedding_linear_gate(conditional_embedding_size, 2 * num_filters)
         elif projection == "linear_relu":
             self.conditioning_projection = embedding_linear_relu(conditional_embedding_size, 2 * num_filters)
+            
+        elif projection == "shallow_nn":
+            self.conditioning_projection = embedding_shallow_nn(conditional_embedding_size, 2 * num_filters)
         
         
         self.dropout = nn.Dropout2d(0.5)

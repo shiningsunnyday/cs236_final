@@ -41,7 +41,7 @@ parser.add_argument("--model_checkpoint", type=str, default=None,
 parser.add_argument("--print_every", type=int, default=10)
 parser.add_argument("--dataset", type=str, default="cifar10", choices=["imagenet32", "cifar10"])
 parser.add_argument("--conditioning", type=str, default="unconditional", choices=["unconditional", "one-hot", "bert"])
-parser.add_argument("--projection", type=str, default="linear", choices=["linear", "gated_linear", "linear_relu"])
+parser.add_argument("--projection", type=str, default="linear", choices=["linear", "gated_linear", "linear_relu", "shallow_nn"])
 parser.add_argument("--tier", type=int, default=1, choices=[1, 2, 3])
 parser.add_argument("--epoch_frac", type=int, default=1)
 
