@@ -42,6 +42,8 @@ parser.add_argument("--print_every", type=int, default=10)
 parser.add_argument("--dataset", type=str, default="cifar10", choices=["imagenet32", "cifar10"])
 parser.add_argument("--conditioning", type=str, default="unconditional", choices=["unconditional", "one-hot", "bert"])
 parser.add_argument("--projection", type=str, default="linear", choices=["linear", "gated_linear", "linear_relu"])
+parser.add_argument("--tier", type=int, default=1, choices=[1, 2, 3])
+parser.add_argument("--epoch_frac", type=int, default=1)
 
 
 def train(model, embedder, optimizer, scheduler,
@@ -51,7 +53,7 @@ def train(model, embedder, optimizer, scheduler,
         model = model.train()
         loss_to_log = 0.0
         for i, (imgs, labels, captions) in enumerate(train_loader):
-            if i == train_dataloader.__len__()//2:
+            if i == train_dataloader.__len__()//opt.epoch_frac:
                 break
             start_batch = time.time()
             imgs = imgs.to(device)
@@ -86,7 +88,7 @@ def train(model, embedder, optimizer, scheduler,
         writer.add_scalar("val/bpd", val_bpd, (epoch + 1) * len(train_loader))
 
         torch.save(model.state_dict(),
-                   os.path.join(opt.output_dir, 'models', 'epoch_{}.pt'.format(0.5)))
+                   os.path.join(opt.output_dir, 'models', 'epoch_{}_.pt'.format(opt.epoch_frac, opt.projection)))
 
     scheduler.step()
 
@@ -115,8 +117,8 @@ if __name__ == "__main__":
 
     print("loading dataset")
     if opt.dataset == "imagenet32":
-        train_dataset = Imagenet32Dataset(train=not opt.train_on_val, max_size=1 if opt.debug else -1)
-        val_dataset = Imagenet32Dataset(train=0, max_size=1 if opt.debug else -1)
+        train_dataset = Imagenet32Dataset(tier=opt.tier, train=not opt.train_on_val, max_size=1 if opt.debug else -1)
+        val_dataset = Imagenet32Dataset(tier=opt.tier, train=0, max_size=1 if opt.debug else -1)
     else:
         assert opt.dataset == "cifar10"
         train_dataset = CIFAR10Dataset(train=not opt.train_on_val, max_size=1 if opt.debug else -1)

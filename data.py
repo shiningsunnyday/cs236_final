@@ -24,7 +24,7 @@ class CaptionedImageDataset(Dataset):
 
 
 class Imagenet32Dataset(CaptionedImageDataset):
-    def __init__(self, root="datasets/ImageNet32", train=True, max_size=-1):
+    def __init__(self, tier=1, root="datasets/ImageNet32", train=True, max_size=-1):
         '''
         :param dirname: str, root dir where the dataset is downloaded
         :param train: bool, true if train set else val
@@ -37,8 +37,10 @@ class Imagenet32Dataset(CaptionedImageDataset):
             self.dirname = os.path.join(root, "train")
         else:
             self.dirname = os.path.join(root, "val")
+            
+          
 
-        self.classId2className = load_vocab_imagenet(os.path.join(root, "map_clsloc.txt"))
+        self.classId2className = load_vocab_imagenet(os.path.join(root, "map_clsloc{}.txt".format(tier)))
         data_files = sorted(os.listdir(self.dirname))
         self.images = []
         self.labelIds = []
