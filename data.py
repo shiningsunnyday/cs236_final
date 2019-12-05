@@ -50,9 +50,12 @@ class Imagenet32Dataset(CaptionedImageDataset):
             data = np.load(os.path.join(self.dirname, f))
             self.images.append(data['data'])
             self.labelIds.append(data['labels'] - 1)
+        
         self.images = np.concatenate(self.images, axis=0)
         self.labelIds = np.concatenate(self.labelIds)
         self.labelNames = [self.classId2className[y] for y in self.labelIds]
+        
+        
 
         if max_size >= 0:
             # limit the size of the dataset
