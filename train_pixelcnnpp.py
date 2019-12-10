@@ -14,12 +14,12 @@ import random
 
 os.makedirs("images", exist_ok=True)
 
-torch.manual_seed(12)
-torch.cuda.manual_seed(12)
-np.random.seed(12)
-random.seed(12)
+# torch.manual_seed(12)
+# torch.cuda.manual_seed(12)
+# np.random.seed(12)
+# random.seed(12)
 
-torch.backends.cudnn.deterministic=True
+# torch.backends.cudnn.deterministic=True
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--n_epochs", type=int, default=150, help="number of epochs of training")
@@ -53,8 +53,6 @@ def train(model, embedder, optimizer, scheduler,
         model = model.train()
         loss_to_log = 0.0
         for i, (imgs, labels, captions) in enumerate(train_loader):
-            if i == train_dataloader.__len__()//opt.epoch_frac:
-                break
             start_batch = time.time()
             imgs = imgs.to(device)
             labels = labels.to(device)
@@ -81,14 +79,14 @@ def train(model, embedder, optimizer, scheduler,
             if (batches_done + 1) % opt.sample_interval == 0:
                 print("sampling_images")
                 model = model.eval()
-                sample_image(model, embedder, opt.output_dir, n_row=4,
+                sample_image(model, embedder, opt.output_dir, n_row=1,
                              batches_done=batches_done,
                              dataloader=val_loader, device=device)
-        val_bpd = eval(model, embedder, val_loader)
-        writer.add_scalar("val/bpd", val_bpd, (epoch + 1) * len(train_loader))
+#         val_bpd = eval(model, embedder, val_loader)
+#         writer.add_scalar("val/bpd", val_bpd, (epoch + 1) * len(train_loader))
 
-        torch.save(model.state_dict(),
-                   os.path.join(opt.output_dir, 'models', 'epoch_{}_.pt'.format(opt.epoch_frac, opt.projection)))
+#         torch.save(model.state_dict(),
+#                    os.path.join(opt.output_dir, 'models', 'epoch_{}_.pt'.format(opt.epoch_frac, opt.projection)))
 
     scheduler.step()
 
@@ -97,6 +95,8 @@ def eval(model, embedder, test_loader):
     print("EVALUATING ON VAL")
     model = model.eval()
     bpd = 0.0
+    
+    import pdb
     for i, (imgs, labels, captions) in tqdm(enumerate(test_loader)):
         imgs = imgs.to(device)
         labels = labels.to(device)
@@ -106,6 +106,7 @@ def eval(model, embedder, test_loader):
             outputs = model.forward(imgs, condition_embd)
             loss = outputs['loss'].mean()
             bpd += loss / np.log(2)
+            
     bpd /= len(test_loader)
     print("VAL bpd : {}".format(bpd))
     return bpd

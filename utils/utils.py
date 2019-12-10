@@ -3,13 +3,17 @@ import numpy as np
 from mpl_toolkits.axes_grid1 import ImageGrid
 import os
 import torch
+import pdb
 
+from inception.inception_score import inception_score
+from fidistance.fid import calculate_fid
 
 def sample_image(model, encoder, output_image_dir, n_row, batches_done, dataloader, device):
     """Saves a grid of generated imagenet pictures with captions"""
     target_dir = os.path.join(output_image_dir, "samples/")
     if not os.path.isdir(target_dir):
         os.makedirs(target_dir)
+       
 
     captions = []
     gen_imgs = []
@@ -25,9 +29,22 @@ def sample_image(model, encoder, output_image_dir, n_row, batches_done, dataload
             if len(captions) > n_row ** 2:
                 done = True
                 break
+                
+            break
 
+    
     gen_imgs = torch.cat(gen_imgs).numpy()
-    gen_imgs = np.clip(gen_imgs, 0, 1)
+    gen_imgs = np.clip(gen_imgs+1e-5, 0, 1)
+    
+    score = inception_score(gen_imgs,splits=1)
+    
+    print("Inception score:", score)
+    
+    for (imgs, labels, captions) in dataloader:
+        fid = calculate_fid(imgs,gen_imgs,batch_size=len(gen_imgs),use_multiprocessing=False)
+        break
+    
+    print("FID score:", fid)
 
     fig = plt.figure(figsize=((8, 8)))
     grid = ImageGrid(fig, 111, nrows_ncols=(n_row, n_row), axes_pad=0.2)
